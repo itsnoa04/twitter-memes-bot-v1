@@ -25,5 +25,28 @@ export const auth = functions.https.onRequest(async (request, response) => {
   response.redirect(url);
 });
 
-export const callback = functions.https.onRequest((request, response) => {});
+export const callback = functions.https.onRequest(async (request, response) => {
+  const { code, state } = request.query;
+  const dbSnapshot = await dbRef.get();
+  const { codeVerifier, state: storedState }: any = dbSnapshot.data();
+
+  if (state !== storedState) {
+    throw new Error("State mismatch");
+  }
+
+  const {
+    // client: loggedClient,
+    accessToken,
+    refreshToken,
+  } = await twitterClient.loginWithOAuth2({
+    code: code as string,
+    codeVerifier,
+    redirectUri: CallbackURL,
+  });
+
+  await dbRef.set({ accessToken, refreshToken });
+
+  response.sendStatus(200);
+});
+
 export const tweet = functions.https.onRequest((request, response) => {});
